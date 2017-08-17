@@ -1,0 +1,149 @@
+
+Problem Statement: 
+Develop a Fault-Tolerant ATM, which detects and tolerates the errors in the ATM system. The ATM system provides users with the basic ATM services – Withdraw Funds and Check balance. The ATM system is structured into an ATM client component, an ATM server component, and a synchronous connector between the client and the server components. The server component is the unit of mitigation for fault tolerance, but the ATM client component and the connector are the not the units of mitigation. The ATM server component is monitored using Heartbeat pattern and recovered the errors using Failover pattern. Design the fault tolerant ATM server component using the Heartbeat pattern. Develop the scenarios for detecting errors in the ATM server component. Design the error processing component using Failover pattern. Implement the fault tolerant ATM server using an object oriented programming language (JAVA).
+Proposed Solution:  
+Flow of Project:
+  	The main class is Global.java
+  	Initially client is started by Global.java using c.start();
+  	In Client class, first display method is called. 
+  	Then according to the given option, either check() or withdraw() is called.
+  	If user enters option as 1, then check method is invoked.
+  	Check method sends the message to the server, using three parameters, option number, cardID and PIN.
+  	This message is carried through synchronous connector class, send message method.
+  	This notifies that there is a message in the buffer and increments the buffer count to 1.
+  	Then goes to the server class run method and checks whether the server is alive. If alive, it checks if there is a message in the synchronous connector.
+  	If there in the synchronous connector, then it does process message method in the server.
+  	The process message method processes the further transaction, and if it is check balance, then checkBalanceTransaction class is invoked, if it is withdraw then withdrawatransaction class is invoked and then exited. Both has checkingAccount class – extended by Account class, and Debitcard details in them.
+  	For handling the faults, we used the card number and pin as 3005.
+  	If card ID is 3005 and if it is a non-fault tolerant server, then in server.java class, then non-fault tolerant server is turned off, i.e. it does not respond to the input given.
+  	Now this server is terminated and control is returned to Global.java class.
+  	Here the next line is to initiate the monitor, where the control returns to Monitor.java class.
+  	In Monitor class, it checks three times for the non-fault tolerant server to respond and send a reply.
+  	Since, there will be no reply from the non-fault tolerant server, it finally calls the errorhandler.fault(); method.
+  	fault(); method is in ErrorProcessingUnit. This kills the main server and then initiates the backup server.
+  	Since main and backup servers are the instances of same class Server, the backup instance of the server is called and respective output for 3005 is obtained.
+Clear Description of all classes implemented:
+	GLOBAL:
+  In the class Global, we create the instances of the checking accounts and initialize them. After that, we open the checking accounts with the account number as the argument and credit some amount in the corresponding account, where open() and credit() are the methods in the Account class. After that we create an Arraylist for the checking account and initialize them and add all the checking accounts into this ArrayList. Then, we create new instances for debit card and initialize them. As done before, we are creating and initializing a new ArrayList for debit cards and adding them to the ArrayList. Then we create instances of every class which includes Synchronous connector, heartbeat connector, errorprocessingunit, client and monitor and initialize them. Then start the client, regular server and monitor which performs the remaining set of actions.
+	CLIENT:
+  When client starts, constructor is invoked and run method is invoked. 
+public void run()
+  So, in this run method, display() is called and it is defined in the client class itself, which is basic output displayed and waits for the user input. After the user enters the input, it is stored in the variable “option” and based on it, if it is 1 then check() is invoked and if it is 2 then withdraw() is invoked. 
+void check()
+  While checking, it asks for card id and the pin, we send a new message to the server through the synchronous connector and we receive a reply from that. If there is anything in the received message then extract account and balance from the “data” arraylist. If there is nothing in the message then there is some error and try again.
+void withdraw()
+  While withdrawing function, it asks for cardId, Pin and the amount to be withdrawn. And if now, the cardId and pin validates we send the message through the synchronous connector to the server and get back the message and then we get the corresponding account and balance from the account and print it out.
+
+	DEBIT CARD:
+  Whenever instance is created then constructor is invoked in the debit card class.
+public int validatePIN(int cardId, int PIN)
+  In this method, it checks the parameters, cardId and PIN with the present instance values and returns account number if matched and returns false if they doesn’t match.
+public void updateDailyDebitTotal(float amount)
+  It takes the parameter amount and when called it adds the amount to the variable dailyDebitTotal of the particular instance.
+public boolean checkDailyDebitLimit(float amount)
+  This function also takes the parameter “amount” and adds this amount to dailyDebitTotal and checks if it is less than or equal to 300. It returns true if the sum is less than 300 and returns false otherwise.
+	WITHDRAWLTRANSACTION:
+  It has one public variable “account” and one method.
+  Here we are using synchronized method to prevent thread interference and memory consistency errors.
+synchronized public float withDrawFunds
+  (int cardId, int PIN, float amount, ArrayList<CheckingAccount> checkingAccountList,
+  ArrayList<DebitCard> debitCardList)
+ Here, in this method, we have three variables and two arraylists as parameters. Here we check card Id and PIN of every instance of the debit card with the parameters of the function and proceed further if they match. Then for every checking account instance we run a for loop and check if any of its account number matches with the debit card’s account number, then we check for the daily debit total and if this returns true we can withdraw money from the debit card. So, if the balance of the particular checking account is greater than the amount requested, then we update the daily debit total and withdraw the amount requested and then update the remaining balance in the respected checking account. If the requested amount is greater than the balance then withdraw cannot be performed and we print out “Not enough balance”. And while checking the dailyDebitTotal, if the sum of the amount and balance already in the account is greater than 300, then further withdraw procedure is terminated and we print out that “Daily limit reached”  If the card Id and Pin doesn’t match for even any one of the debit card instances then return nothing and print out “Invalid CardId or PIN”
+
+	SYNCHRONOUS CONNECTOR:
+In this class, we handle message buffer and response buffers. Both the buffers are linked lists. We have buffer max and buffer count for both message and response buffers.
+public synchronized boolean isMessage()
+This method returns true if messageBufferCount is greater than zero.
+public SynchronousConnector()
+This is the connector and it is invoked when an instance of the class is created. Linked lists are created and BufferFull, max and count variables are declared.
+public synchronized void send(Message m)
+If messageBufferCount is greater than messageBufferMax then we are implementing the try- catch block to handle any exceptions and including wait() in the try block. If not then MessageBufferCount variable is incremented and the passed message is added to the messageBuffer and using notifyAll(); we are waking up all the threads.
+public synchronized Message receive()
+If the messageBufferCount is empty then we wait() implementing the try-catch mechanism. If we have something in the messageBuffer then we extract the message from it using pollFirst() which gives the first one if there is anything and returns null if there is nothing. Then, we decrement the messageBufferCount variable, notify all the threads and return the message.
+public synchronized void replay(Message m)
+If the responseBufferCount is greater than responseBufferMax then we wait implementing the exception handling mechanism and increment the responseBufferCount and add the message to the responseBuffer and notify all the threads.
+public synchronized Message receiveReplay()
+If responseBufferCount is empty then we wait implementing the try-catch mechanism to handle any exceptions if arised. If responseBufferCount is not empty then we extract the message from it using pollFirst() method, it returns the first one in the buffer and returns null if there is nothing. Then, we decrement the responseBufferCount  and notify all the threads and return the message.
+
+	MESSAGE:
+In this class, we just create the arraylist and all the parameters into it. We have five constructors and this five constructors are overloaded declaring it with different number of parameters suitable for different functions.
+public Message(int code)
+public Message(int code, int id, int pin)
+public Message(int code, int account, float balance)
+public Message(int code, int id, int pin, float amount)
+public Message(ArrayList<Object> data) 
+
+	CHECKBALANCETRANSACTION:
+In this class, we check the balance in the account associated with the debit card and return the balance.
+public synchronized float checkBalance
+(int cardId, int PIN,
+ ArrayList<CheckingAccount> checkingAccountList,
+ ArrayList<DebitCard> debitCardList)	
+In this method we first check all the instances of the debit card and if any instance matches with the cardId and pin passed as parameter to this function, then we check all the instances of the checking account and here if any account number of the checking account matches with the account number associated with debit card then we will return the balance. If the instance of the debit card is not matched with the cardId and pin to the present function then we print out “Invalid cardId or PIN”. 
+
+	CHECKINGACCOUNT:
+It is the child class of the Account class and has one variable and one method
+float lastDepositAmount;
+public float readLastDepositAmount()
+This method simply returns the last deposited amount in the checking account.
+
+	MONITOR:
+In this class, we are initializing objects by defining constructor.
+public void kill()
+In this method we close the heartbeat connection.
+public void run()
+In this method we will check whether the server is up or not. And if server is down then check it again and continue this for three times. After you reach a limit of three then stop there and print out “Count 3 times. Server does not respond” and invoke fault(); which kills the main server and starts the backup server.
+
+	HEARTBEAT CONNECTOR:
+In this class, we have two linked lists for response buffer and message buffer. And we got max and count variables for response and message buffers respectively. 
+public synchronized boolean isMessage()
+Returns true if messageBufferCount is greater than zero.
+And we have a constructor here which creates a linked lists for response and message buffers and sets Max to 1 and Count to 0.
+public boolean endAll = false;
+public synchronized void end()
+In this method we make endAll variable true and notify all the threads using notifyAll(); which is included in the try-catch block i.e., error handling mechanism.
+public synchronized void send(Message m)
+In this method, until messageBufferCount is greater than messageBufferMax and if endAll is true we return the control and invoke the wait(). If not, we increment the messageBufferCount variable and add the message to the messageBuffer and notify all the threads.
+public synchronized Message receive()
+In this method if message buffer is empty then we invoke wait(). Otherwise, we will extract the message from the message buffer using pollfirst() and decrement the messageBufferCount variable, notify all the threads and return the message.
+public synchronized void replay(Message m)
+In this method, until responseBufferCount is greater than or equal to responseBufferMax, we will invoke the wait(). Otherwise, we will increment the responseBufferCount variable and add the message to the response buffer and notify all the threads.
+public synchronized Message receiveReplay()
+If the response buffer is empty we will invoke the wait(), otherwise i.e., if there is something in the response buffer, we will extract the message using pollFirst() and then decrement the response buffer, notify all the threads, and then return the message.
+
+	SERVER:
+Whenever object is initialized for server class, constructor is invoked, and referred to the present instance of the class and declaring stillAlive as true.
+void processMessage()
+When we receive message from client, we are extracting the first element into “type” variable. And if this code is 1 then we will check balance and eventually we will extract cardId and pin and if the server is non-fault tolerant and if cardId is ‘3005’, then we make the connection i.e., “stillAlive” false and send the message again using replay();
+And now we will check balance, using checkBalance(); which is defined in the checkbalanceTransition class, if it returns nothing then there is some error otherwise again request the server to check the balance using replay(); 
+If the type variable holds code as ‘2’ then we must perform withdrawal transaction and extract cardid, pin and amount form the petition. And now here the same scenario repeats as in checkbalance() i.e., if the server is fault tolerant and cardId is ‘3005’, make the “stillAlive” false which turns the non fault tolerant server not respond.
+void processHeartBeatMessage()
+This function, when invoked we should receive the message from the regular server. Since the message is not received, it goes to backup server by checking the heart beat connector class
+void kill()
+This function makes the keepGoing variable false.
+public void run()
+In this method if “keepGoing” is true and if connection is through synchronous connector then processMessage(); is invoked and if the connection is through heartbeat connector then processHeartBeatMessage(); is invoked.
+
+	NON-FAULT TOLERANT SERVER:
+When still alive in non fault tolerant server is made false, the control is shifted to Global.java class where monitor is started using m.start(). Then control goes to monitor class and there it checks is Message property, whether if there is any message available from the regular server for three times. If there is no message, then it runs the fault() method in the error processing unit.
+
+ERRORPROCESSINGUNIT:
+We have a constructor which is used to refer present  parameters.
+public void fault()
+This function is used to kill the main server and start the backup server. Backup server again initiates the instance if the server.
+public void endAll()
+This function is used to kill all the servers and kill the monitor.
+
+
+	ACCOUNT:
+This class handles the basic operations of the account. Whenever an instance of a class is created then balance is initialized as float variable.
+public void open(int accountNumber)
+It refers to account number of the present instance.
+public float readBalance()
+It just returns balance
+public void credit(float amount)
+This function just adds the passed “amount” to the present balance.
+public void debit(float amount)
+This function just subtracts the passed “amount” variable to the present balance.
+int getAccountNumber()
+This function just returns the account number. 
